@@ -6,6 +6,11 @@ class Elevator {
     this.zoneContainer = this.$(".ew-elevator-storey-zone");
     this.elevator = this.$(".ew-elevator");
     this.generateStorey(this.count || 6);
+    this.doorCloseTime = 3 * 1000;
+    this.queue1 = [];
+    this.queue2 = [];
+    this.queue3 = [];
+    this.isMoving = false;
   }
   $(selector, el = document) {
     return el.querySelector(selector);
@@ -19,9 +24,9 @@ class Elevator {
       template += `
                 <div class="ew-elevator-storey">
                     <div class="ew-elevator-controller">
-                        <button type="button" class="ew-elevator-to-top ew-elevator-btn" ${i === count - 1 ? "disabled" : ""
+                        <button type="button" debug="${i}" class="ew-elevator-to-top ew-elevator-btn" ${i === count - 1 ? "disabled" : ""
         }>↑</button>
-                        <button type="button" class="ew-elevator-to-bottom ew-elevator-btn" ${i === 0 ? "disabled" : ""
+                        <button type="button" debug="${i}" class="ew-elevator-to-bottom ew-elevator-btn" ${i === 0 ? "disabled" : ""
         }>↓</button>
                     </div>
                     <div class="ew-elevator-count">${i + 1}</div>
@@ -46,15 +51,26 @@ class Elevator {
         if (btn.classList.contains("checked")) {
           return;
         }
-        Array.from(this.btnGroup).forEach(btn => btn.setAttribute('disabled', true));
+        // Array.from(this.btnGroup).forEach(btn => btn.setAttribute('disabled', true));
+        btn.setAttribute('disabled', true);
         btn.classList.add("checked");
         const currentFloor = this.count - floorIndex;
         const moveFloor = currentFloor - 1;
-        this.elevatorMove(currentFloor, floorHeight * moveFloor);
+        this.elevatorMove(currentFloor, floorHeight * moveFloor, btn);
       });
     });
   }
-  elevatorMove(num, offset) {
+  elevatorMove(num, offset, btn) {
+    this.queue1.push(num);
+    this.queue2.push(offset);
+    this.queue3.push(btn);
+
+    console.log(this.queue1);
+    if (this.queue1.length === 1 && !this.isMoving)
+      this.moving(this.queue1.shift(), this.queue2.shift(), this.queue3.shift());
+  }
+  moving(num, offset, btn) {
+    this.isMoving = true;
     const currentFloor = this.onFloor;
     const diffFloor = Math.abs(num - currentFloor);
 
@@ -63,30 +79,35 @@ class Elevator {
       bottom: offset + "px",
     });
 
-    Array.from(this.doors).forEach((door) => {
-      door.classList.add("toggle");
-      this.addStyles(door, {
-        animationDelay: diffFloor + "s",
-      });
-    });
-
-    $message.success(
-      `本美女就要出来了，请速速来迎接,再等${(diffFloor * 1000 + 3000) / 1000
-      }s就关电梯门了!`
-    );
-
+    // wait for elevator move to target floor
     setTimeout(() => {
-      [...this.btnGroup].forEach((btn, index) => {
-        btn.classList.remove("checked");
-        if (index !== 0 && index !== this.btnGroup.length - 1) {
-          btn.removeAttribute("disabled");
-        }
+      // open door
+      Array.from(this.doors).forEach((door) => {
+        door.classList.add("toggle");
+        this.addStyles(door, {
+          animationDelay: 0 + "s",
+        });
+        btn.removeAttribute("disabled");
       });
+
+      // console.log(
+      //   `本美女就要出来了，请速速来迎接,再等${this.doorCloseTime / 1000
+      //   }s就关电梯门了!`
+      // );
+
+      // close door
+      setTimeout(() => {
+        Array.from(this.doors).forEach((door) => door.classList.remove("toggle"));
+
+        this.isMoving = false;
+        
+        console.log(this.queue1);
+        if (this.queue1.length > 0)
+          this.moving(this.queue1.shift(), this.queue2.shift(), this.queue3.shift());
+      }, this.doorCloseTime);
+
+      btn.classList.remove("checked");
     }, diffFloor * 1000);
-
-    setTimeout(() => {
-      Array.from(this.doors).forEach((door) => door.classList.remove("toggle"));
-    }, diffFloor * 1000 + 3000);
 
     this.onFloor = num;
   }
