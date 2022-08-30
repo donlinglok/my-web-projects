@@ -1,4 +1,5 @@
 class Elevator {
+  // init
   constructor(count) {
     this.count = count;
     this.onFloor = 1;
@@ -7,9 +8,9 @@ class Elevator {
     this.elevator = this.$(".ew-elevator");
     this.generateStorey(this.count || 6);
     this.doorCloseTime = 3 * 1000;
-    this.queue1 = [];
-    this.queue2 = [];
-    this.queue3 = [];
+    this.queue_floor = [];
+    this.queue_offset = [];
+    this.queue_button = [];
     this.isMoving = false;
   }
   $(selector, el = document) {
@@ -17,6 +18,9 @@ class Elevator {
   }
   $$(selector, el = document) {
     return el.querySelectorAll(selector);
+  }
+  addStyles(el, styles) {
+    Object.assign(el.style, styles);
   }
   generateStorey(count) {
     let template = "";
@@ -51,23 +55,22 @@ class Elevator {
         if (btn.classList.contains("checked")) {
           return;
         }
-        // Array.from(this.btnGroup).forEach(btn => btn.setAttribute('disabled', true));
         btn.setAttribute('disabled', true);
         btn.classList.add("checked");
-        const currentFloor = this.count - floorIndex;
-        const moveFloor = currentFloor - 1;
-        this.elevatorMove(currentFloor, floorHeight * moveFloor, btn);
+        const targetFloor = this.count - floorIndex;
+        const moveFloor = targetFloor - 1;
+        this.elevatorMove(targetFloor, floorHeight * moveFloor, btn);
       });
     });
   }
   elevatorMove(num, offset, btn) {
-    this.queue1.push(num);
-    this.queue2.push(offset);
-    this.queue3.push(btn);
+    // FCFS-First Come First Serve
+    this.queue_floor.push(num);
+    this.queue_offset.push(offset);
+    this.queue_button.push(btn);
 
-    console.log(this.queue1);
-    if (this.queue1.length === 1 && !this.isMoving)
-      this.moving(this.queue1.shift(), this.queue2.shift(), this.queue3.shift());
+    if (this.queue_floor.length === 1 && !this.isMoving)
+      nextMove();
   }
   moving(num, offset, btn) {
     this.isMoving = true;
@@ -90,20 +93,14 @@ class Elevator {
         btn.removeAttribute("disabled");
       });
 
-      // console.log(
-      //   `本美女就要出来了，请速速来迎接,再等${this.doorCloseTime / 1000
-      //   }s就关电梯门了!`
-      // );
-
       // close door
       setTimeout(() => {
         Array.from(this.doors).forEach((door) => door.classList.remove("toggle"));
 
         this.isMoving = false;
-        
-        console.log(this.queue1);
-        if (this.queue1.length > 0)
-          this.moving(this.queue1.shift(), this.queue2.shift(), this.queue3.shift());
+
+        if (this.queue_floor.length > 0)
+          nextMove();
       }, this.doorCloseTime);
 
       btn.classList.remove("checked");
@@ -111,8 +108,114 @@ class Elevator {
 
     this.onFloor = num;
   }
-  addStyles(el, styles) {
-    Object.assign(el.style, styles);
+  nextMove() {
+    // SSTF-Shortest Seek Time First
+    let smallest = 9999;
+    let tempIndex;
+    this.queue_floor.forEach(element, index => {
+      if (element != this.onFloor) {
+        let tempSmallest = element - this.onFloor;
+        if (smallest > tempSmallest) {
+          smallest = tempSmallest;
+          tempIndex = index;
+        }
+      }
+    });
+    this.queue_floor.remove(tempIndex);
+    this.queue_offset.remove(tempIndex);
+    this.queue_button.remove(tempIndex);
+
+    this.queue_floor.unshift(this.onFloor + smallest);
+    this.queue_offset.unshift(this.onFloor + smallest);
+    this.queue_button.unshift(this.onFloor + smallest);
+    console.log(this.queue_floor);
+
+    // SCAN
+    if (this.onFloor == this.count || this.onFloor == 0) {
+      let direction = this.onFloor - this.queue_floor.get(0);
+      if (direction >= 0) { // go up
+        this.queue_floor.sort((a, b) => {
+          if (a === Infinity)
+            return 1;
+          else if (isNaN(a))
+            return -1;
+          else
+            return a + b;
+        });
+        this.tempQueue_floor = [];
+        this.queue_floor.forEach(element, index => {
+          if (element < this.queue_floor.get(0)) {
+            this.tempQueue_floor.push(element);
+            this.queue_floor.remove(index);
+          }
+        });
+        this.queue_floor.concat(this.tempQueue_floor);
+        console.log('up: ' + this.queue_floor);
+      } else { //go down
+        this.queue_floor.sort((a, b) => {
+          if (a === Infinity)
+            return 1;
+          else if (isNaN(a))
+            return -1;
+          else
+            return a - b;
+        });
+        this.tempQueue_floor = [];
+        this.queue_floor.forEach(element, index => {
+          if (element > this.queue_floor.get(0)) {
+            this.tempQueue_floor.push(element);
+            this.queue_floor.remove(index);
+          }
+        });
+        this.queue_floor.concat(this.tempQueue_floor);
+        console.log('down: ' + this.queue_floor);
+      }
+    }
+
+    // LOOK
+    let direction2 = this.onFloor - this.queue_floor.get(0);
+    if (direction2 >= 0) { // go up
+      this.queue_floor.sort((a, b) => {
+        if (a === Infinity)
+          return 1;
+        else if (isNaN(a))
+          return -1;
+        else
+          return a + b;
+      });
+      this.tempQueue_floor = [];
+      this.queue_floor.forEach(element, index => {
+        if (element < this.queue_floor.get(0)) {
+          this.tempQueue_floor.push(element);
+          this.queue_floor.remove(index);
+        }
+      });
+      this.queue_floor.concat(this.tempQueue_floor);
+      console.log('up: ' + this.queue_floor);
+    } else { //go down
+      this.queue_floor.sort((a, b) => {
+        if (a === Infinity)
+          return 1;
+        else if (isNaN(a))
+          return -1;
+        else
+          return a - b;
+      });
+      this.tempQueue_floor = [];
+      this.queue_floor.forEach(element, index => {
+        if (element > this.queue_floor.get(0)) {
+          this.tempQueue_floor.push(element);
+          this.queue_floor.remove(index);
+        }
+      });
+      this.queue_floor.concat(this.tempQueue_floor);
+      console.log('down: ' + this.queue_floor);
+    }
+
+    // SATF（Shortest Access Time First）
+    // TODO
+
+    this.moving(this.queue_floor.shift(), this.queue2.shift(), this.queue_button.shift());
   }
 }
 
